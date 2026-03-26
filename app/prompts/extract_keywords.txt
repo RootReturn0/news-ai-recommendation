@@ -1,0 +1,17 @@
+You are extracting durable user-interest keywords from a liked news message.
+
+Task:
+- Read the liked news content below.
+- Extract up to 5 high-signal keywords or entities the user is likely interested in.
+- Prefer company names, product names, model names, labs, frameworks, chip companies, startups, or technologies.
+- Do not return generic words like "news", "feature", "startup", "model", "developers".
+- Avoid repeating items already present in the existing keyword list unless necessary.
+- Keep the keywords concise.
+
+Existing keywords: {existing_keywords}
+
+Liked news content:
+{reply_text}
+
+Return only a JSON array of strings, for example:
+["OpenAI", "GPT-5", "NVIDIA"]

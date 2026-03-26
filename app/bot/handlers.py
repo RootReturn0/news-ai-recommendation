@@ -26,30 +26,6 @@ SUPPORTED_COMMANDS = {
     "/keywords",
     "/settings",
 }
-PREFERRED_KEYWORDS = [
-    "OpenAI",
-    "Claude",
-    "Anthropic",
-    "NVIDIA",
-    "Google",
-    "Gemini",
-    "Meta",
-    "Llama",
-    "Microsoft",
-    "xAI",
-    "Grok",
-    "Mistral",
-    "DeepSeek",
-    "Perplexity",
-    "Cursor",
-    "LangChain",
-    "Hugging Face",
-    "YC",
-    "Y Combinator",
-    "GPT-4",
-    "GPT-4.1",
-    "GPT-5",
-]
 
 
 async def handle_update(payload: dict[str, Any], send_reply: bool = True) -> str:
@@ -69,8 +45,9 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
     chat_id = _extract_chat_id(message)
     user_id = _extract_user_id(message) or chat_id
     username = _extract_username(message)
+    user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
 
-    liked_reply = _extract_liked_reply_keywords(message)
+    liked_reply = await _extract_liked_reply_keywords(message, user.keywords)
     if liked_reply:
         keywords = user_settings_service.append_keywords(chat_id, user_id, liked_reply, username=username)
         reply_text = _extract_reply_text(message)
@@ -97,11 +74,9 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
         values = user_settings_service.update_keywords(chat_id, user_id, argument, username=username)
         return format_list_update("Keywords", values)
     if command == "/settings":
-        user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         return format_settings(user)
     # if command in {"/news", "message"}:
     if command in {"/news"}:
-        user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         request_text = argument or text or ""
         items = await personalization_service.get_personalized_news(user=user, request_text=request_text)
         summary = await llm_service.summarize_news(user=user, request_text=request_text, items=items)
@@ -111,7 +86,6 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
         replies.extend(format_news_item(index, item) for index, item in enumerate(items, start=1))
         return replies
     if command == "/hotnews":
-        user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         items = await personalization_service.get_hot_news(user=user)
         summary = await llm_service.summarize_hot_news(user=user, items=items)
         if not items:
@@ -178,14 +152,14 @@ def _parse_command_parts(text: str) -> tuple[str, str]:
     return command, tail.strip()
 
 
-def _extract_liked_reply_keywords(message: dict[str, Any]) -> list[str]:
+async def _extract_liked_reply_keywords(message: dict[str, Any], existing_keywords: list[str]) -> list[str]:
     text = _extract_text(message).strip().lower()
     if text not in {"👍", "/like", "like", "liked", "love this"}:
         return []
     reply_text = _extract_reply_text(message)
     if not reply_text:
         return []
-    return _extract_keyword_candidates(reply_text)
+    return await llm_service.extract_keywords_from_liked_news(reply_text, existing_keywords)
 
 
 def _extract_reply_text(message: dict[str, Any]) -> str:
@@ -204,80 +178,3 @@ def _extract_reply_url(reply_text: str) -> str:
         if line.startswith("Link: "):
             return line.replace("Link: ", "", 1).strip()
     return ""
-
-
-def _extract_keyword_candidates(text: str) -> list[str]:
-    lowered = text.lower()
-    keywords: list[str] = []
-    seen: set[str] = set()
-
-    for keyword in PREFERRED_KEYWORDS:
-        variants = {keyword.lower()}
-        if keyword == "Y Combinator":
-            variants.add("ycombinator")
-        for variant in variants:
-            if variant in lowered:
-                key = keyword.lower()
-                if key not in seen:
-                    keywords.append(keyword)
-                    seen.add(key)
-                break
-
-    title_line = ""
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped and stripped[0].isdigit() and ". " in stripped:
-            title_line = stripped.split(". ", 1)[1]
-            break
-
-    for token in _tokenize_title_keywords(title_line):
-        lowered_token = token.lower()
-        if lowered_token not in seen:
-            keywords.append(token)
-            seen.add(lowered_token)
-
-    return keywords[:5]
-
-
-def _tokenize_title_keywords(title: str) -> list[str]:
-    if not title:
-        return []
-    import re
-
-    stopwords = {
-        "the",
-        "and",
-        "for",
-        "with",
-        "from",
-        "this",
-        "that",
-        "why",
-        "source",
-        "link",
-        "today",
-        "launches",
-        "launch",
-        "new",
-        "feature",
-        "features",
-        "startup",
-        "startups",
-        "major",
-        "developer",
-        "developers",
-        "model",
-        "release",
-        "tool",
-        "tools",
-    }
-    matches = re.findall(r"[A-Za-z][A-Za-z0-9\-\+\.]{2,}", title)
-    results: list[str] = []
-    for match in matches:
-        lowered = match.lower()
-        if lowered in stopwords:
-            continue
-        if match.islower() and lowered not in {item.lower() for item in PREFERRED_KEYWORDS}:
-            continue
-        results.append(match)
-    return results[:3]
