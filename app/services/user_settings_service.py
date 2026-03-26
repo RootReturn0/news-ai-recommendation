@@ -22,8 +22,11 @@ class UserSettingsService:
     def __init__(self) -> None:
         self._users: dict[tuple[int, int], User] = {}
         self._feedback: defaultdict[tuple[int, int], list[dict[str, str]]] = defaultdict(list)
+        self._sent_messages: dict[tuple[int, int], str] = {}
         self._users_dir = Path("data/users")
+        self._sent_messages_dir = Path("data/sent_messages")
         self._users_dir.mkdir(parents=True, exist_ok=True)
+        self._sent_messages_dir.mkdir(parents=True, exist_ok=True)
 
     def get_or_create_user(self, chat_id: int, user_id: int, username: str | None = None) -> User:
         key = (chat_id, user_id)
@@ -94,8 +97,29 @@ class UserSettingsService:
             }
         )
 
+    def record_sent_message(self, chat_id: int, message_id: int, text: str) -> None:
+        key = (chat_id, message_id)
+        self._sent_messages[key] = text
+        path = self._sent_message_path(chat_id, message_id)
+        path.write_text(text, encoding="utf-8")
+
+    def get_sent_message(self, chat_id: int, message_id: int) -> str:
+        key = (chat_id, message_id)
+        cached = self._sent_messages.get(key)
+        if cached is not None:
+            return cached
+        path = self._sent_message_path(chat_id, message_id)
+        if not path.exists():
+            return ""
+        text = path.read_text(encoding="utf-8")
+        self._sent_messages[key] = text
+        return text
+
     def _user_path(self, chat_id: int, user_id: int) -> Path:
         return self._users_dir / f"{chat_id}_{user_id}.json"
+
+    def _sent_message_path(self, chat_id: int, message_id: int) -> Path:
+        return self._sent_messages_dir / f"{chat_id}_{message_id}.txt"
 
     def _load_user(self, chat_id: int, user_id: int) -> User | None:
         path = self._user_path(chat_id, user_id)

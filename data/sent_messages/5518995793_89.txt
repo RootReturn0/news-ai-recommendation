@@ -1,0 +1,4 @@
+1. Show HN: Robust LLM Extractor for Websites in TypeScript
+Why it matters: Matches your interests in Show, Robust, LLM, Extractor, Websites.
+Source: Hacker News
+Link: https://github.com/lightfeed/extractor

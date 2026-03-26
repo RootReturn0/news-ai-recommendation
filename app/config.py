@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     tg_bot_token: Optional[str] = Field(default=None, alias="TG_BOT_TOKEN")
     tg_api_base: str = Field(default="https://api.telegram.org", alias="TG_API_BASE")
     tg_webhook_base_url: Optional[str] = Field(default=None, alias="TG_BASE_URL")
+    rss_feed_url: str = Field(default="https://news.ycombinator.com/rss", alias="RSS_FEED_URL")
     rss_data_dir: str = "data/rss"
     recommendation_limit: int = 5
 

@@ -29,13 +29,28 @@ SUPPORTED_COMMANDS = {
 
 
 async def handle_update(payload: dict[str, Any], send_reply: bool = True) -> str:
-    raw_message = payload.get("message") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return ""
+    reaction = payload.get("message_reaction")
+    if isinstance(reaction, dict):
+        reply = await handle_message_reaction(reaction)
+        chat_id = _extract_reaction_chat_id(reaction)
+        if send_reply and chat_id:
+            for part in _normalize_replies(reply):
+                sent_message_id = await telegram_provider.send_message(chat_id=chat_id, text=part)
+                if sent_message_id:
+                    user_settings_service.record_sent_message(chat_id, sent_message_id, part)
+        return _join_reply_preview(reply)
+
+    raw_message = payload.get("message")
     message = raw_message if isinstance(raw_message, dict) else {}
     reply = await handle_message(message)
     chat_id = _extract_chat_id(message)
     if send_reply and chat_id:
         for part in _normalize_replies(reply):
-            await telegram_provider.send_message(chat_id=chat_id, text=part)
+            sent_message_id = await telegram_provider.send_message(chat_id=chat_id, text=part)
+            if sent_message_id:
+                user_settings_service.record_sent_message(chat_id, sent_message_id, part)
     return _join_reply_preview(reply)
 
 
@@ -96,10 +111,26 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
     return "Unknown command. Use /help to see available commands."
 
 
+async def handle_message_reaction(reaction: dict[str, Any]) -> str | list[str]:
+    chat_id = _extract_reaction_chat_id(reaction)
+    message_id = _extract_reaction_message_id(reaction)
+    if not chat_id or not message_id:
+        return ""
+    original_text = user_settings_service.get_sent_message(chat_id, message_id)
+    if not original_text:
+        return ""
+    reaction_emoji = _extract_reaction_emoji(reaction)
+    if reaction_emoji == "👍":
+        return original_text[:10]
+    if reaction_emoji == "👎":
+        return original_text[-10:]
+    return ""
+
+
 def _normalize_replies(reply: str | list[str]) -> list[str]:
     if isinstance(reply, list):
-        return reply
-    return [reply]
+        return [item for item in reply if item]
+    return [reply] if reply else []
 
 
 def _join_reply_preview(reply: str | list[str]) -> str:
@@ -177,4 +208,35 @@ def _extract_reply_url(reply_text: str) -> str:
     for line in reply_text.splitlines():
         if line.startswith("Link: "):
             return line.replace("Link: ", "", 1).strip()
+    return ""
+
+
+def _extract_reaction_chat_id(reaction: dict[str, Any]) -> int:
+    chat = reaction.get("chat")
+    if isinstance(chat, dict):
+        chat_id = chat.get("id")
+        if isinstance(chat_id, int):
+            return chat_id
+    return 0
+
+
+def _extract_reaction_message_id(reaction: dict[str, Any]) -> int:
+    message_id = reaction.get("message_id")
+    if isinstance(message_id, int):
+        return message_id
+    return 0
+
+
+def _extract_reaction_emoji(reaction: dict[str, Any]) -> str:
+    new_reaction = reaction.get("new_reaction")
+    if not isinstance(new_reaction, list):
+        return ""
+    for item in new_reaction:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "emoji":
+            continue
+        emoji = item.get("emoji")
+        if isinstance(emoji, str):
+            return emoji
     return ""

@@ -39,5 +39,6 @@ uvicorn app.main:app --reload
 ## Notes
 
 - `/news` uses Tavily search when `TAVILY_API_KEY` is configured.
-- `/hotnews` reads from [yc-example.xml](/Users/return0/Study/Learning/Programming/news-ai-recommendation/data/rss/yc-example.xml).
+- `/hotnews` reads from `https://news.ycombinator.com/rss` by default.
+- You can override the hot feed source with `RSS_FEED_URL` in `.env`.
 - If no OpenAI-compatible credentials are configured, the app falls back to rule-based summaries.

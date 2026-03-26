@@ -1,0 +1,4 @@
+2. Tech Companies Track Employee Token Consumption - Let's Data Science
+Why it matters: Matches your interests in openai, LLM.
+Source: Tavily
+Link: https://letsdatascience.com/news/tech-companies-track-employee-token-consumption-6b4865a6
