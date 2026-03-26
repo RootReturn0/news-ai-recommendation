@@ -61,6 +61,30 @@ class UserSettingsService:
         self._save_user(user)
         return user.keywords
 
+    def append_keywords(
+        self,
+        chat_id: int,
+        user_id: int,
+        keywords: list[str],
+        username: str | None = None,
+    ) -> list[str]:
+        user = self.get_or_create_user(chat_id, user_id, username=username)
+        merged = list(user.keywords)
+        seen = {keyword.lower() for keyword in merged}
+        for keyword in keywords:
+            normalized = keyword.strip()
+            if not normalized:
+                continue
+            lowered = normalized.lower()
+            if lowered in seen:
+                continue
+            merged.append(normalized)
+            seen.add(lowered)
+        user.keywords = merged
+        user.updated_at = _utcnow()
+        self._save_user(user)
+        return user.keywords
+
     def record_feedback(self, chat_id: int, user_id: int, news_url: str, feedback_type: str, source_command: str) -> None:
         self._feedback[(chat_id, user_id)].append(
             {

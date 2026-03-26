@@ -26,6 +26,30 @@ SUPPORTED_COMMANDS = {
     "/keywords",
     "/settings",
 }
+PREFERRED_KEYWORDS = [
+    "OpenAI",
+    "Claude",
+    "Anthropic",
+    "NVIDIA",
+    "Google",
+    "Gemini",
+    "Meta",
+    "Llama",
+    "Microsoft",
+    "xAI",
+    "Grok",
+    "Mistral",
+    "DeepSeek",
+    "Perplexity",
+    "Cursor",
+    "LangChain",
+    "Hugging Face",
+    "YC",
+    "Y Combinator",
+    "GPT-4",
+    "GPT-4.1",
+    "GPT-5",
+]
 
 
 async def handle_update(payload: dict[str, Any], send_reply: bool = True) -> str:
@@ -45,6 +69,22 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
     chat_id = _extract_chat_id(message)
     user_id = _extract_user_id(message) or chat_id
     username = _extract_username(message)
+
+    liked_reply = _extract_liked_reply_keywords(message)
+    if liked_reply:
+        keywords = user_settings_service.append_keywords(chat_id, user_id, liked_reply, username=username)
+        reply_text = _extract_reply_text(message)
+        reply_url = _extract_reply_url(reply_text)
+        if reply_url:
+            user_settings_service.record_feedback(
+                chat_id=chat_id,
+                user_id=user_id,
+                news_url=reply_url,
+                feedback_type="liked",
+                source_command="reply_like",
+            )
+        extracted = ", ".join(liked_reply)
+        return f"Saved from your like: {extracted}\n\nCurrent keywords:\n" + "\n".join(f"- {item}" for item in keywords)
 
     if command == "/start":
         return format_welcome()
@@ -136,3 +176,108 @@ def _parse_command_parts(text: str) -> tuple[str, str]:
     if command not in SUPPORTED_COMMANDS:
         return "unknown", stripped
     return command, tail.strip()
+
+
+def _extract_liked_reply_keywords(message: dict[str, Any]) -> list[str]:
+    text = _extract_text(message).strip().lower()
+    if text not in {"👍", "/like", "like", "liked", "love this"}:
+        return []
+    reply_text = _extract_reply_text(message)
+    if not reply_text:
+        return []
+    return _extract_keyword_candidates(reply_text)
+
+
+def _extract_reply_text(message: dict[str, Any]) -> str:
+    reply = message.get("reply_to_message")
+    if not isinstance(reply, dict):
+        return ""
+    text = reply.get("text")
+    if isinstance(text, str) and text:
+        return text
+    caption = reply.get("caption")
+    return caption if isinstance(caption, str) else ""
+
+
+def _extract_reply_url(reply_text: str) -> str:
+    for line in reply_text.splitlines():
+        if line.startswith("Link: "):
+            return line.replace("Link: ", "", 1).strip()
+    return ""
+
+
+def _extract_keyword_candidates(text: str) -> list[str]:
+    lowered = text.lower()
+    keywords: list[str] = []
+    seen: set[str] = set()
+
+    for keyword in PREFERRED_KEYWORDS:
+        variants = {keyword.lower()}
+        if keyword == "Y Combinator":
+            variants.add("ycombinator")
+        for variant in variants:
+            if variant in lowered:
+                key = keyword.lower()
+                if key not in seen:
+                    keywords.append(keyword)
+                    seen.add(key)
+                break
+
+    title_line = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and stripped[0].isdigit() and ". " in stripped:
+            title_line = stripped.split(". ", 1)[1]
+            break
+
+    for token in _tokenize_title_keywords(title_line):
+        lowered_token = token.lower()
+        if lowered_token not in seen:
+            keywords.append(token)
+            seen.add(lowered_token)
+
+    return keywords[:5]
+
+
+def _tokenize_title_keywords(title: str) -> list[str]:
+    if not title:
+        return []
+    import re
+
+    stopwords = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "this",
+        "that",
+        "why",
+        "source",
+        "link",
+        "today",
+        "launches",
+        "launch",
+        "new",
+        "feature",
+        "features",
+        "startup",
+        "startups",
+        "major",
+        "developer",
+        "developers",
+        "model",
+        "release",
+        "tool",
+        "tools",
+    }
+    matches = re.findall(r"[A-Za-z][A-Za-z0-9\-\+\.]{2,}", title)
+    results: list[str] = []
+    for match in matches:
+        lowered = match.lower()
+        if lowered in stopwords:
+            continue
+        if match.islower() and lowered not in {item.lower() for item in PREFERRED_KEYWORDS}:
+            continue
+        results.append(match)
+    return results[:3]
