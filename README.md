@@ -33,7 +33,7 @@ uvicorn app.main:app --reload
 - `/topics AI, startups`
 - `/keywords OpenAI, YC`
 - `/settings`
-- `/news today`
+- `/news`
 - `/hotnews`
 
 ## Notes
