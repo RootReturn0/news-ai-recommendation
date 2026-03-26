@@ -1,0 +1,2 @@
+Summarize the selected news items in 1-2 short sentences.
+Keep the summary specific to the user's interests.

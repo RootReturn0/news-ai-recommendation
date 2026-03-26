@@ -1,0 +1,2 @@
+Rank the news items by relevance to the user's topics, keywords, and current request.
+Return short reasoning focused on why each item matters.
