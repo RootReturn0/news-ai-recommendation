@@ -1,2 +1,11 @@
 Rank the news items by relevance to the user's topics, keywords, and current request.
-Return short reasoning focused on why each item matters.
+
+Use strict filtering:
+- Only keep items with clear, direct relevance to the user's topics, keywords, or explicit request.
+- Prefer exact entity, company, product, model, framework, or domain matches.
+- Reject broad tech news, weak thematic similarity, or generic startup/AI/programming news unless the match is strong.
+- If relevance is ambiguous, treat it as not relevant.
+- Penalize items that are interesting in general but not specifically useful to this user.
+- Favor precision over recall. It is better to return fewer items than include weak matches.
+
+For each kept item, return short reasoning focused on why it matters specifically to this user.

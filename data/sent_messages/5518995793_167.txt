@@ -1,0 +1,4 @@
+1. Show HN: Optio – Orchestrate AI coding agents in K8s to go from ticket to PR
+Why it matters: Matches your interests in Show, Optio, Orchestrate, K8s.
+Source: RSS
+Link: https://github.com/jonwiggins/optio

@@ -1,0 +1,4 @@
+26. Rendering complex scripts in terminal and OSC 66
+Why it matters: Relevant to your current request: rss push.
+Source: RSS
+Link: https://thottingal.in/blog/2026/03/22/complex-scripts-in-terminal/

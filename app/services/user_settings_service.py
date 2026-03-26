@@ -104,6 +104,31 @@ class UserSettingsService:
         self._save_user(user)
         return user.keywords
 
+    def get_all_users(self) -> list[User]:
+        users = list(self._users.values())
+        known_keys = set(self._users.keys())
+        for path in sorted(self._users_dir.glob("*.json")):
+            stem = path.stem
+            try:
+                chat_id_str, user_id_str = stem.split("_", 1)
+                key = (int(chat_id_str), int(user_id_str))
+            except ValueError:
+                continue
+            if key in known_keys:
+                continue
+            user = User.model_validate_json(path.read_text(encoding="utf-8"))
+            self._users[key] = user
+            users.append(user)
+        return users
+
+    def mark_news_pushed(self, chat_id: int, user_id: int, news_id: str, username: str | None = None) -> list[str]:
+        user = self.get_or_create_user(chat_id, user_id, username=username)
+        if news_id not in user.pushed_news_ids:
+            user.pushed_news_ids.append(news_id)
+            user.updated_at = _utcnow()
+            self._save_user(user)
+        return user.pushed_news_ids
+
     def record_feedback(self, chat_id: int, user_id: int, news_url: str, feedback_type: str, source_command: str) -> None:
         self._feedback[(chat_id, user_id)].append(
             {

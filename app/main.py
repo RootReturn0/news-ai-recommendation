@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.routes.health import router as health_router
+from app.routes.push import router as push_router
 from app.routes.telegram import router as telegram_router
 
 
@@ -9,6 +10,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
     app.include_router(health_router)
+    app.include_router(push_router, prefix="/push", tags=["push"])
     app.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
     return app
 

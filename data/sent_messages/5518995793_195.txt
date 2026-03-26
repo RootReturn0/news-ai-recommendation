@@ -1,0 +1,4 @@
+29. More precise elevation data for GraphHopper routing engine
+Why it matters: Relevant to your current request: rss push.
+Source: RSS
+Link: https://www.graphhopper.com/blog/2026/03/23/more-precise-elevation-data-for-graphhopper/

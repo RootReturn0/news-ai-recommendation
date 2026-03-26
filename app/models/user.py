@@ -9,5 +9,6 @@ class User(BaseModel):
     username: str | None = None
     topics: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
+    pushed_news_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
