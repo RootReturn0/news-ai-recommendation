@@ -31,6 +31,21 @@ def format_news_results(header: str, summary: str, items: list[NewsItem]) -> str
     return "\n".join(lines)
 
 
+def format_news_intro(header: str, summary: str) -> str:
+    return f"{header}\n\n{summary}"
+
+
+def format_news_item(index: int, item: NewsItem) -> str:
+    return "\n".join(
+        [
+            f"{index}. {item.title}",
+            f"Why it matters: {item.reason or 'This looks relevant to your current interests.'}",
+            f"Source: {item.source or 'Unknown'}",
+            f"Link: {item.url or 'N/A'}",
+        ]
+    )
+
+
 def format_help() -> str:
     return (
         "Commands:\n"

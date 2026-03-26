@@ -3,6 +3,8 @@ from typing import Any
 from app.bot.formatter import (
     format_help,
     format_list_update,
+    format_news_intro,
+    format_news_item,
     format_news_results,
     format_settings,
     format_welcome,
@@ -32,11 +34,12 @@ async def handle_update(payload: dict[str, Any], send_reply: bool = True) -> str
     reply = await handle_message(message)
     chat_id = _extract_chat_id(message)
     if send_reply and chat_id:
-        await telegram_provider.send_message(chat_id=chat_id, text=reply)
-    return reply
+        for part in _normalize_replies(reply):
+            await telegram_provider.send_message(chat_id=chat_id, text=part)
+    return _join_reply_preview(reply)
 
 
-async def handle_message(message: dict[str, Any]) -> str:
+async def handle_message(message: dict[str, Any]) -> str | list[str]:
     text = _extract_text(message)
     command, argument = _parse_command_parts(text)
     chat_id = _extract_chat_id(message)
@@ -56,18 +59,37 @@ async def handle_message(message: dict[str, Any]) -> str:
     if command == "/settings":
         user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         return format_settings(user)
-    if command in {"/news", "message"}:
+    # if command in {"/news", "message"}:
+    if command in {"/news"}:
         user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         request_text = argument or text or ""
         items = await personalization_service.get_personalized_news(user=user, request_text=request_text)
         summary = await llm_service.summarize_news(user=user, request_text=request_text, items=items)
-        return format_news_results("Top picks for you today", summary, items)
+        if not items:
+            return format_news_results("Top picks for you today", summary, items)
+        replies = [format_news_intro("Top picks for you today", summary)]
+        replies.extend(format_news_item(index, item) for index, item in enumerate(items, start=1))
+        return replies
     if command == "/hotnews":
         user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
         items = await personalization_service.get_hot_news(user=user)
         summary = await llm_service.summarize_hot_news(user=user, items=items)
-        return format_news_results("Hot news today", summary, items)
+        if not items:
+            return format_news_results("Hot news today", summary, items)
+        replies = [format_news_intro("Hot news today", summary)]
+        replies.extend(format_news_item(index, item) for index, item in enumerate(items, start=1))
+        return replies
     return "Unknown command. Use /help to see available commands."
+
+
+def _normalize_replies(reply: str | list[str]) -> list[str]:
+    if isinstance(reply, list):
+        return reply
+    return [reply]
+
+
+def _join_reply_preview(reply: str | list[str]) -> str:
+    return "\n\n".join(_normalize_replies(reply))
 
 
 def _extract_text(message: dict[str, Any]) -> str:
