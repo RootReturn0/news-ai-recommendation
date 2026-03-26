@@ -53,7 +53,8 @@ def format_help() -> str:
         "/keywords OpenAI, YC\n"
         "/settings\n"
         "/news today\n"
-        "/hotnews"
+        "/hotnews\n"
+        "Reply /dislike to a sent news item to remove related keywords"
     )
 
 

@@ -22,6 +22,7 @@ SUPPORTED_COMMANDS = {
     "/help",
     "/news",
     "/hotnews",
+    "/dislike",
     "/topics",
     "/keywords",
     "/settings",
@@ -77,6 +78,23 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
             )
         extracted = ", ".join(liked_reply)
         return f"Saved from your like: {extracted}\n\nCurrent keywords:\n" + "\n".join(f"- {item}" for item in keywords)
+
+    disliked_reply = await _extract_disliked_reply_keywords(message, user.keywords)
+    if disliked_reply:
+        keywords = user_settings_service.remove_keywords(chat_id, user_id, disliked_reply, username=username)
+        reply_text = _extract_reply_text(message)
+        reply_url = _extract_reply_url(reply_text)
+        if reply_url:
+            user_settings_service.record_feedback(
+                chat_id=chat_id,
+                user_id=user_id,
+                news_url=reply_url,
+                feedback_type="disliked",
+                source_command="reply_dislike",
+            )
+        removed = ", ".join(disliked_reply)
+        current = "\n".join(f"- {item}" for item in keywords) or "- (empty)"
+        return f"Removed from your keywords: {removed}\n\nCurrent keywords:\n{current}"
 
     if command == "/start":
         return format_welcome()
@@ -186,6 +204,16 @@ def _parse_command_parts(text: str) -> tuple[str, str]:
 async def _extract_liked_reply_keywords(message: dict[str, Any], existing_keywords: list[str]) -> list[str]:
     text = _extract_text(message).strip().lower()
     if text not in {"👍", "/like", "like", "liked", "love this"}:
+        return []
+    reply_text = _extract_reply_text(message)
+    if not reply_text:
+        return []
+    return await llm_service.extract_keywords_from_liked_news(reply_text, existing_keywords)
+
+
+async def _extract_disliked_reply_keywords(message: dict[str, Any], existing_keywords: list[str]) -> list[str]:
+    text = _extract_text(message).strip().lower()
+    if text not in {"/dislike", "dislike", "not interested", "don't like this", "👎"}:
         return []
     reply_text = _extract_reply_text(message)
     if not reply_text:

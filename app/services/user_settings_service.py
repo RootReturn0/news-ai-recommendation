@@ -88,6 +88,22 @@ class UserSettingsService:
         self._save_user(user)
         return user.keywords
 
+    def remove_keywords(
+        self,
+        chat_id: int,
+        user_id: int,
+        keywords: list[str],
+        username: str | None = None,
+    ) -> list[str]:
+        user = self.get_or_create_user(chat_id, user_id, username=username)
+        to_remove = {keyword.strip().lower() for keyword in keywords if keyword.strip()}
+        if not to_remove:
+            return user.keywords
+        user.keywords = [keyword for keyword in user.keywords if keyword.lower() not in to_remove]
+        user.updated_at = _utcnow()
+        self._save_user(user)
+        return user.keywords
+
     def record_feedback(self, chat_id: int, user_id: int, news_url: str, feedback_type: str, source_command: str) -> None:
         self._feedback[(chat_id, user_id)].append(
             {
