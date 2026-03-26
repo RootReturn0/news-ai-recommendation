@@ -2,46 +2,104 @@
 
 FastAPI + Telegram Bot + OpenAI/Tavily powered personalized news agent.
 
-## Run
+## 项目概览
 
-1. Create and activate a virtualenv.
-2. Install dependencies:
+这是一个以 Telegram Bot 为交互入口的个性化新闻推荐项目。
+
+核心能力：
+- 用户可以通过 `/topics` 和 `/keywords` 保存长期偏好
+- `/news` 会基于用户偏好调用 Tavily 搜索个性化新闻
+- `/hotnews` 会读取热点 RSS 新闻并逐条返回
+- 用户可以通过回复 `/like`、`/dislike`，或直接使用 `👍`、`👎` 反馈新闻
+- 系统会用 LLM 从用户反馈过的新闻中提取关键词，并自动更新用户的 `keywords`
+- 支持根据用户 `topics` 和 `keywords` 从 RSS mock data 中筛选新增新闻并触发推送
+
+## 运行方式
+
+1. 创建并激活虚拟环境
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Fill `.env` with the needed values:
-- `TG_BOT_TOKEN`
-- `TAVILY_API_KEY` for `/news`
-- `OPENAI_API_KEY` or your OpenAI-compatible gateway credentials for summary generation
+3. 配置 `.env`
 
-4. Start the app:
+至少需要：
+- `TG_BOT_TOKEN`
+- `TG_BASE_URL` 或你自己的 webhook 对外地址
+
+按功能可选：
+- `TAVILY_API_KEY`
+- `OPENAI_API_KEY` 或兼容 OpenAI 的网关配置
+- `RSS_FEED_URL`
+
+4. 启动服务
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-## Endpoints
+## 接口
 
 - `GET /health`
+  - 健康检查
 - `POST /telegram/webhook`
+  - Telegram webhook 入口
 - `POST /telegram/debug`
+  - 本地调试 Telegram payload
+- `POST /push/check`
+  - 手动触发一次 RSS 匹配推送检查
 
-## Commands
+## Telegram 使用说明
 
+基础命令：
+- `/start`
+- `/help`
 - `/topics AI, startups`
 - `/keywords OpenAI, YC`
 - `/settings`
-- `/news`
+- `/news today`
 - `/hotnews`
 
-## Notes
+反馈方式：
+- 回复一条已发送的新闻消息后发送 `/like`
+- 回复一条已发送的新闻消息后发送 `/dislike`
+- 也可以直接对 bot 发出的新闻消息使用 `👍` 或 `👎` reaction
 
-- `/news` uses Tavily search when `TAVILY_API_KEY` is configured.
-- `/hotnews` reads from `https://news.ycombinator.com/rss` by default.
-- You can override the hot feed source with `RSS_FEED_URL` in `.env`.
-- If no OpenAI-compatible credentials are configured, the app falls back to rule-based summaries.
+## 当前实现说明
+
+- `/news`
+  - 使用 Tavily 搜索，并按用户 `topics`、`keywords`、当前请求做个性化排序
+  - 新闻按条逐条返回
+
+- `/hotnews`
+  - 使用 RSS 数据源读取热点新闻
+  - 结果按条逐条返回
+
+- 关键词更新
+  - 用户点赞一条新闻时，系统会调用 LLM 从新闻文本中提取高信号关键词，追加到用户 `keywords`
+  - 用户点踩一条新闻时，系统会使用同样的方式提取关键词，并从用户 `keywords` 中删除
+
+- RSS 推送
+  - 当前提供手动触发的 RSS 推送检查
+  - 使用 `data/rss/*.xml` 作为 mock data
+  - 只有新闻文本中命中用户 `topics` 或 `keywords`，并且该新闻是“未推送过的新新闻”时，才会推送
+
+## 数据存储
+
+- `data/users/`
+  - 保存用户 JSON 数据，包括 `topics`、`keywords`、已推送新闻 ID 等
+- `data/sent_messages/`
+  - 保存 bot 发出的新闻文本，供后续 reaction 和回复反馈使用
+- `data/rss/`
+  - RSS mock data，用于本地演示和手动推送检查
 
 ## 有用的命令
 
