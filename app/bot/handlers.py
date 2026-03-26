@@ -64,8 +64,13 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
     user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
 
     liked_reply = await _extract_liked_reply_keywords(message, user.keywords)
-    if liked_reply:
+    if _is_like_message(message):
+        if not liked_reply:
+            return _keyword_extraction_failed_message()
+        previous_keywords = list(user.keywords)
         keywords = user_settings_service.append_keywords(chat_id, user_id, liked_reply, username=username)
+        if keywords == previous_keywords:
+            return _keyword_extraction_failed_message()
         reply_text = _extract_reply_text(message)
         reply_url = _extract_reply_url(reply_text)
         if reply_url:
@@ -80,8 +85,13 @@ async def handle_message(message: dict[str, Any]) -> str | list[str]:
         return f"Saved from your like: {extracted}\n\nCurrent keywords:\n" + "\n".join(f"- {item}" for item in keywords)
 
     disliked_reply = await _extract_disliked_reply_keywords(message, user.keywords)
-    if disliked_reply:
+    if _is_dislike_message(message):
+        if not disliked_reply:
+            return _keyword_extraction_failed_message()
+        previous_keywords = list(user.keywords)
         keywords = user_settings_service.remove_keywords(chat_id, user_id, disliked_reply, username=username)
+        if keywords == previous_keywords:
+            return _keyword_extraction_failed_message()
         reply_text = _extract_reply_text(message)
         reply_url = _extract_reply_url(reply_text)
         if reply_url:
@@ -202,8 +212,7 @@ def _parse_command_parts(text: str) -> tuple[str, str]:
 
 
 async def _extract_liked_reply_keywords(message: dict[str, Any], existing_keywords: list[str]) -> list[str]:
-    text = _extract_text(message).strip().lower()
-    if text not in {"👍", "/like", "like", "liked", "love this"}:
+    if not _is_like_message(message):
         return []
     reply_text = _extract_reply_text(message)
     if not reply_text:
@@ -212,13 +221,28 @@ async def _extract_liked_reply_keywords(message: dict[str, Any], existing_keywor
 
 
 async def _extract_disliked_reply_keywords(message: dict[str, Any], existing_keywords: list[str]) -> list[str]:
-    text = _extract_text(message).strip().lower()
-    if text not in {"/dislike", "dislike", "not interested", "don't like this", "👎"}:
+    if not _is_dislike_message(message):
         return []
     reply_text = _extract_reply_text(message)
     if not reply_text:
         return []
     return await llm_service.extract_keywords_from_liked_news(reply_text, existing_keywords)
+
+
+def _is_like_message(message: dict[str, Any]) -> bool:
+    text = _extract_text(message).strip().lower()
+    return text in {"👍", "/like", "like", "liked", "love this"}
+
+
+def _is_dislike_message(message: dict[str, Any]) -> bool:
+    text = _extract_text(message).strip().lower()
+    return text in {"/dislike", "dislike", "not interested", "don't like this", "👎"}
+
+
+def _keyword_extraction_failed_message() -> str:
+    return (
+        "Keyword extraction failed."
+    )
 
 
 def _extract_reply_text(message: dict[str, Any]) -> str:
