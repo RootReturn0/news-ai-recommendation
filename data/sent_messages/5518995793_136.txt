@@ -1,0 +1,18 @@
+Usage Guide
+
+What this bot can do:
+- Save your preferred topics and keywords
+- Search personalized news with /news
+- Show trending stories with /hotnews
+- Update your keywords automatically from feedback on sent news
+
+Command examples:
+/topics AI, startups
+/keywords OpenAI, YC
+/settings
+/news today
+/hotnews
+
+Feedback:
+- Reply /like or react with 👍 to add related keywords
+- Reply /dislike or react with 👎 to remove related keywords

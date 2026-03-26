@@ -48,18 +48,27 @@ def format_news_item(index: int, item: NewsItem) -> str:
 
 def format_help() -> str:
     return (
-        "Commands:\n"
+        "Usage Guide\n\n"
+        "What this bot can do:\n"
+        "- Save your preferred topics and keywords\n"
+        "- Search personalized news with /news\n"
+        "- Show trending stories with /hotnews\n"
+        "- Update your keywords automatically from feedback on sent news\n\n"
+        "Command examples:\n"
         "/topics AI, startups\n"
         "/keywords OpenAI, YC\n"
         "/settings\n"
         "/news today\n"
-        "/hotnews\n"
-        "Reply /dislike to a sent news item to remove related keywords"
+        "/hotnews\n\n"
+        "Feedback:\n"
+        "- Reply /like or react with 👍 to add related keywords\n"
+        "- Reply /dislike or react with 👎 to remove related keywords"
     )
 
 
 def format_welcome() -> str:
     return (
         "This bot helps you find personalized news.\n"
-        "Set your interests with /topics and /keywords, then use /news or /hotnews."
+        "Set your interests with /topics and /keywords, then use /news or /hotnews.\n"
+        "Use /help to view the usage guide."
     )

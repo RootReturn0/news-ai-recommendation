@@ -144,14 +144,53 @@ async def handle_message_reaction(reaction: dict[str, Any]) -> str | list[str]:
     message_id = _extract_reaction_message_id(reaction)
     if not chat_id or not message_id:
         return ""
+    user_id = _extract_reaction_user_id(reaction) or chat_id
+    username = _extract_reaction_username(reaction)
+    user = user_settings_service.get_or_create_user(chat_id, user_id, username=username)
     original_text = user_settings_service.get_sent_message(chat_id, message_id)
     if not original_text:
         return ""
     reaction_emoji = _extract_reaction_emoji(reaction)
     if reaction_emoji == "👍":
-        return original_text[:10]
+        extracted = await llm_service.extract_keywords_from_liked_news(original_text, user.keywords)
+        if not extracted:
+            return _keyword_extraction_failed_message()
+        previous_keywords = list(user.keywords)
+        keywords = user_settings_service.append_keywords(chat_id, user_id, extracted, username=username)
+        if keywords == previous_keywords:
+            return _keyword_extraction_failed_message()
+        reply_url = _extract_reply_url(original_text)
+        if reply_url:
+            user_settings_service.record_feedback(
+                chat_id=chat_id,
+                user_id=user_id,
+                news_url=reply_url,
+                feedback_type="liked",
+                source_command="reaction_like",
+            )
+        extracted_text = ", ".join(extracted)
+        current = "\n".join(f"- {item}" for item in keywords)
+        return f"Saved from your reaction: {extracted_text}\n\nCurrent keywords:\n{current}"
     if reaction_emoji == "👎":
-        return original_text[-10:]
+        extracted = await llm_service.extract_keywords_from_liked_news(original_text, user.keywords)
+        if not extracted:
+            return _keyword_extraction_failed_message()
+        previous_keywords = list(user.keywords)
+        keywords = user_settings_service.remove_keywords(chat_id, user_id, extracted, username=username)
+        if keywords == previous_keywords:
+            return _keyword_extraction_failed_message()
+        reply_url = _extract_reply_url(original_text)
+        if reply_url:
+            user_settings_service.record_feedback(
+                chat_id=chat_id,
+                user_id=user_id,
+                news_url=reply_url,
+                feedback_type="disliked",
+                source_command="reaction_dislike",
+            )
+        removed_text = ", ".join(extracted)
+        current = "\n".join(f"- {item}" for item in keywords) or "- (empty)"
+        return f"Removed from your keywords: {removed_text}\n\nCurrent keywords:\n{current}"
     return ""
 
 
@@ -241,7 +280,7 @@ def _is_dislike_message(message: dict[str, Any]) -> bool:
 
 def _keyword_extraction_failed_message() -> str:
     return (
-        "Keyword extraction failed."
+        "No topic keywords could be updated."
     )
 
 
@@ -292,3 +331,28 @@ def _extract_reaction_emoji(reaction: dict[str, Any]) -> str:
         if isinstance(emoji, str):
             return emoji
     return ""
+
+
+def _extract_reaction_user_id(reaction: dict[str, Any]) -> int:
+    for field in ("user", "from"):
+        value = reaction.get(field)
+        if isinstance(value, dict):
+            user_id = value.get("id")
+            if isinstance(user_id, int):
+                return user_id
+    actor_chat = reaction.get("actor_chat")
+    if isinstance(actor_chat, dict):
+        actor_id = actor_chat.get("id")
+        if isinstance(actor_id, int):
+            return actor_id
+    return 0
+
+
+def _extract_reaction_username(reaction: dict[str, Any]) -> str | None:
+    for field in ("user", "from"):
+        value = reaction.get(field)
+        if isinstance(value, dict):
+            username = value.get("username")
+            if isinstance(username, str) and username:
+                return username
+    return None

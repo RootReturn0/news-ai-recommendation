@@ -1,0 +1,12 @@
+Your current settings
+
+Topics:
+- technology
+
+Keywords:
+- openai
+- apple
+- Show
+- Optio
+- Orchestrate
+- K8s
